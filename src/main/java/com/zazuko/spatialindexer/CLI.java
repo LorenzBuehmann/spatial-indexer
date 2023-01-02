@@ -1,5 +1,8 @@
 package com.zazuko.spatialindexer;
 
+import de.vandermeer.asciitable.AT_Row;
+import de.vandermeer.asciitable.AsciiTable;
+import de.vandermeer.skb.interfaces.transformers.textformat.TextAlignment;
 import org.apache.jena.atlas.io.IOX;
 import org.apache.jena.geosparql.configuration.GeoSPARQLConfig;
 import org.apache.jena.geosparql.configuration.GeoSPARQLOperations;
@@ -17,6 +20,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.Callable;
 
 @picocli.CommandLine.Command(name = "index", mixinStandardHelpOptions = true)
@@ -36,7 +41,7 @@ public class CLI implements Callable<Integer> {
   @CommandLine.Option(names = {"--overwrite"}, description = "overwrite spatial index if exists")
   boolean overwrite;
 
-  @CommandLine.Option(names = {"--index-per-graph"}, description = "if enabled, an index tree per graph will be generated", defaultValue = "true")
+  @CommandLine.Option(names = {"--index-per-graph"}, description = "if enabled, an index tree per graph will be generated (default: ${DEFAULT-VALUE})", defaultValue = "true")
   boolean indexPerGraph = true;
 
   @CommandLine.Option(names = {"-g", "--graph"}, paramLabel = "URI", description = "named graph URI", split = ",")
@@ -122,12 +127,28 @@ public class CLI implements Callable<Integer> {
       Envelope envelope = index.getSrsInfo().getDomainEnvelope();
 
 
-      int size = index.getDefaultGraphIndexTree().query(envelope).size();
-      System.out.println("default graph: " + size);
+      Map<String, Integer> graphToSize = new TreeMap<>();
+
+      graphToSize.put("DEFAULT", index.getDefaultGraphIndexTree().query(envelope).size());
 
       index.getNamedGraphToIndexTreeMapping().forEach((g, tree) -> {
-        System.out.println(g + ":" + tree.query(envelope).size());
+        graphToSize.put(g, tree.query(envelope).size());
       });
+
+      AsciiTable at = new AsciiTable();
+      at.addRule();
+      AT_Row header = at.addRow("Graph", "Size");
+      header.setTextAlignment(TextAlignment.CENTER);
+      at.addRule();
+      graphToSize.forEach((g, size) -> {
+        AT_Row row = at.addRow(g, size);
+        row.getCells().get(1).getContext().setTextAlignment(TextAlignment.RIGHT);
+      });
+
+      at.addRule();
+
+      System.out.println(at.render());
+
     } catch (SpatialIndexException e) {
       System.err.println(e);
       return 1;
