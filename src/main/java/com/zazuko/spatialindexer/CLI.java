@@ -2,6 +2,7 @@ package com.zazuko.spatialindexer;
 
 import de.vandermeer.asciitable.AT_Row;
 import de.vandermeer.asciitable.AsciiTable;
+import de.vandermeer.asciitable.CWC_LongestLine;
 import de.vandermeer.skb.interfaces.transformers.textformat.TextAlignment;
 import org.apache.jena.atlas.io.IOX;
 import org.apache.jena.geosparql.configuration.GeoSPARQLConfig;
@@ -136,12 +137,16 @@ public class CLI implements Callable<Integer> {
       });
 
       AsciiTable at = new AsciiTable();
+      CWC_LongestLine cwc = new CWC_LongestLine();
+
+      at.getRenderer().setCWC(cwc);
       at.addRule();
       AT_Row header = at.addRow("Graph", "Size");
       header.setTextAlignment(TextAlignment.CENTER);
       at.addRule();
       graphToSize.forEach((g, size) -> {
         AT_Row row = at.addRow(g, size);
+        row.getCells().get(0).getContext().setPaddingLeftRight(1);
         row.getCells().get(1).getContext().setTextAlignment(TextAlignment.RIGHT);
       });
 
