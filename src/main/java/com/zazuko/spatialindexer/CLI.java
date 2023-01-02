@@ -125,15 +125,12 @@ public class CLI implements Callable<Integer> {
     try {
       SpatialIndex index = SpatialIndex.load(spatialIndexFile);
 
-      Envelope envelope = index.getSrsInfo().getDomainEnvelope();
-
-
       Map<String, Integer> graphToSize = new TreeMap<>();
 
-      graphToSize.put("DEFAULT", index.getDefaultGraphIndexTree().query(envelope).size());
+      graphToSize.put("DEFAULT", index.getDefaultGraphIndexTree().size());
 
       index.getNamedGraphToIndexTreeMapping().forEach((g, tree) -> {
-        graphToSize.put(g, tree.query(envelope).size());
+        graphToSize.put(g, tree.size());
       });
 
       AsciiTable at = new AsciiTable();
