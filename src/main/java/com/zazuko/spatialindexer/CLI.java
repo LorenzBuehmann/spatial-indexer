@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.Callable;
+import java.util.stream.Collectors;
 
 @picocli.CommandLine.Command(name = "index", mixinStandardHelpOptions = true)
 public class CLI implements Callable<Integer> {
@@ -126,25 +127,34 @@ public class CLI implements Callable<Integer> {
       SpatialIndex index = SpatialIndex.load(spatialIndexFile);
 
       Map<String, Integer> graphToSize = new TreeMap<>();
+      Map<String, Integer> graphToDepth = new TreeMap<>();
 
       graphToSize.put("DEFAULT", index.getDefaultGraphIndexTree().size());
+      graphToDepth.put("DEFAULT", index.getDefaultGraphIndexTree().depth());
 
-      index.getNamedGraphToIndexTreeMapping().forEach((g, tree) -> {
-        graphToSize.put(g, tree.size());
-      });
+      Map<String, Integer> map = index.getNamedGraphToIndexTreeMapping().entrySet()
+        .parallelStream()
+        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().size()));
+      graphToSize.putAll(map);
+
+      map = index.getNamedGraphToIndexTreeMapping().entrySet()
+        .parallelStream()
+        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().depth()));
+      graphToDepth.putAll(map);
 
       AsciiTable at = new AsciiTable();
       CWC_LongestLine cwc = new CWC_LongestLine();
 
       at.getRenderer().setCWC(cwc);
       at.addRule();
-      AT_Row header = at.addRow("Graph", "Size");
+      AT_Row header = at.addRow("Graph", "Size", "Depth");
       header.setTextAlignment(TextAlignment.CENTER);
       at.addRule();
       graphToSize.forEach((g, size) -> {
-        AT_Row row = at.addRow(g, size);
+        AT_Row row = at.addRow(g, size, graphToDepth.get(g));
         row.getCells().get(0).getContext().setPaddingLeftRight(1);
         row.getCells().get(1).getContext().setTextAlignment(TextAlignment.RIGHT);
+        row.getCells().get(2).getContext().setTextAlignment(TextAlignment.RIGHT);
       });
 
       at.addRule();
