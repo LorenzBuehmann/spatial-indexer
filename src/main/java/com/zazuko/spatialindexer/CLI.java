@@ -49,9 +49,23 @@ public class CLI implements Callable<Integer> {
   @CommandLine.Option(names = {"-g", "--graph"}, paramLabel = "URI", description = "named graph URI", split = ",")
   String[] graphURIs;
 
+  @CommandLine.Option(names = {"--resource-serde"}, description = "resource serialization: ${COMPLETION-CANDIDATES}")
+  ResourceSerde resourceSerde;
+
+  @CommandLine.Option(names = {"--index-serde"}, description = "index serialization: ${COMPLETION-CANDIDATES}")
+  IndexSerde indexSerde;
+
+  enum ResourceSerde {
+    STRING, NODE
+  }
+
+  enum IndexSerde {
+    JAVA, KRYO
+  }
+
 
   public static void main(String[] args) {
-    int exitCode = new CommandLine(new CLI()).execute(args);
+    int exitCode = new CommandLine(new CLI()).setCaseInsensitiveEnumValuesAllowed(true).execute(args);
     System.exit(exitCode);
   }
 
@@ -69,6 +83,13 @@ public class CLI implements Callable<Integer> {
         System.out.println("most prominent SRS URI: " + srsURI);
       }
 
+      if (resourceSerde == ResourceSerde.NODE) {
+        SpatialIndex.resourceSerde=res -> res.asNode();
+      } else {
+        SpatialIndex.resourceSerde=res -> res.asNode().toString();
+      }
+      SpatialIndex index = SpatialIndex.buildSpatialIndex(dataset, srsURI, indexPerGraph);//, tmpFile.toFile(), indexPerGraph);
+
 
       if (overwrite) {// overwrite mode, we write to tmp file first, then, if successful, replace the index file
         String filename = spatialIndexFile.getAbsolutePath();
@@ -79,10 +100,20 @@ public class CLI implements Callable<Integer> {
         } catch (IOException ex) {
           throw new SpatialIndexException("Failed to delete file: " + ex.getMessage());
         }
-        SpatialIndex.buildSpatialIndex(dataset, srsURI, tmpFile.toFile(), indexPerGraph);
+
+        if (indexSerde == IndexSerde.KRYO) {
+          SpatialIndex.save(tmpFile.toFile(), index);
+        } else {
+          SpatialIndex.saveWithJavaSerde(tmpFile.toFile(), index);
+        }
+
         IOX.moveAllowCopy(tmpFile, spatialIndexFile.toPath());
       } else {
-        SpatialIndex.buildSpatialIndex(dataset, srsURI, spatialIndexFile, indexPerGraph);
+        if (indexSerde == IndexSerde.KRYO) {
+          SpatialIndex.save(spatialIndexFile, index);
+        } else {
+          SpatialIndex.saveWithJavaSerde(spatialIndexFile, index);
+        }
       }
 
     } catch (SpatialIndexException e) {
@@ -131,6 +162,7 @@ public class CLI implements Callable<Integer> {
 
       graphToSize.put("DEFAULT", index.getDefaultGraphIndexTree().size());
       graphToDepth.put("DEFAULT", index.getDefaultGraphIndexTree().depth());
+
 
       Map<String, Integer> map = index.getNamedGraphToIndexTreeMapping().entrySet()
         .parallelStream()
