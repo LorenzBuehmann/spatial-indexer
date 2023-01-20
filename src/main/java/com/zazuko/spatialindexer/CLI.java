@@ -55,6 +55,9 @@ public class CLI implements Callable<Integer> {
   @CommandLine.Option(names = {"--index-serde"}, description = "index serialization: ${COMPLETION-CANDIDATES}")
   IndexSerde indexSerde;
 
+  @CommandLine.Option(names = {"--stop-on-parse-error"}, description = "stop on geometry literal parse error")
+  boolean stopOnParseError = false;
+
   enum ResourceSerde {
     STRING, NODE
   }
@@ -82,6 +85,8 @@ public class CLI implements Callable<Integer> {
         srsURI = GeoSPARQLOperations.findModeSRS(dataset);
         System.out.println("most prominent SRS URI: " + srsURI);
       }
+
+      SpatialIndex.PARSE_FAIL_ON_ERROR = stopOnParseError;
 
       if (resourceSerde == ResourceSerde.NODE) {
         SpatialIndex.resourceSerde=res -> res.asNode();
